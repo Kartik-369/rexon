@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlmodel
+pydantic
+psycopg2-binary
+aiosqlite
+python-dotenv
+langgraph
+pytest
