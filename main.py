@@ -64,10 +64,10 @@ def get_metrics(session: Session = Depends(get_session)):
     total_all = session.exec(select(func.sum(Transaction.amount))).first() or 0.0
     total_tx = session.exec(select(func.count(Transaction.id))).first() or 0
 
-    # Revenue still at risk = FAILED + ESCALATED (non-recovered statuses)
+    # Revenue still at risk = FAILED + ESCALATED + REJECTED (non-recovered statuses)
     at_risk = session.exec(
         select(func.sum(Transaction.amount))
-        .where(Transaction.status.in_(["FAILED", "ESCALATED"]))
+        .where(Transaction.status.in_(["FAILED", "ESCALATED", "REJECTED"]))
     ).first() or 0.0
 
     # Recovered (net of discount, from ledger)
@@ -86,6 +86,9 @@ def get_metrics(session: Session = Depends(get_session)):
     ).first() or 0
     abandoned_tx = session.exec(
         select(func.count(Transaction.id)).where(Transaction.status == "ABANDONED")
+    ).first() or 0
+    rejected_tx = session.exec(
+        select(func.count(Transaction.id)).where(Transaction.status == "REJECTED")
     ).first() or 0
 
     recovery_rate = (recovered_tx / total_tx * 100) if total_tx > 0 else 0.0
@@ -106,6 +109,7 @@ def get_metrics(session: Session = Depends(get_session)):
             "escalated": escalated_tx,
             "failed": failed_tx,
             "abandoned": abandoned_tx,
+            "rejected": rejected_tx,
             "total": total_tx,
         },
     }
@@ -249,3 +253,48 @@ def trigger_deliberate_failure(
     )
     session.commit()
     return {"message": "Deliberate failure triggered", "state": final_state}
+
+
+class VerifyResponse(BaseModel):
+    is_valid: bool
+    broken_links: List[str]
+    message: str
+
+@app.get("/api/audit/verify", response_model=VerifyResponse)
+def verify_audit_chain(session: Session = Depends(get_session)):
+    transactions = session.exec(select(Transaction)).all()
+    broken_links = []
+    
+    for t in transactions:
+        audits = session.exec(
+            select(AuditLog)
+            .where(AuditLog.transaction_id == t.id)
+            .order_by(AuditLog.timestamp)
+        ).all()
+        
+        expected_prev = "GENESIS"
+        for a in audits:
+            if a.prev_hash != expected_prev:
+                broken_links.append(f"Tx {t.id} - Audit {a.id}: prev_hash mismatch")
+            
+            # Recompute row_hash
+            computed_hash = compute_row_hash(
+                transaction_id=str(a.transaction_id),
+                actor=a.actor,
+                event_type=a.event_type,
+                payload_json=a.payload_json,
+                justification=a.justification,
+                timestamp=a.timestamp.isoformat(),
+                prev_hash=a.prev_hash
+            )
+            if a.row_hash != computed_hash:
+                broken_links.append(f"Tx {t.id} - Audit {a.id}: row_hash mismatch")
+                
+            expected_prev = a.row_hash
+            
+    is_valid = len(broken_links) == 0
+    return {
+        "is_valid": is_valid,
+        "broken_links": broken_links,
+        "message": "Audit chain verified successfully." if is_valid else f"Found {len(broken_links)} integrity violations."
+    }
