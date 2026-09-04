@@ -31,7 +31,7 @@ def test_guardrail_rejects_over_discount():
         discount_pct=15,
     ))
     # Pydantic catches >10 at LLM boundary → REJECTED_INVALID_PROPOSAL
-    assert final["final_status"] == "ESCALATED"
+    assert final["final_status"] == "REJECTED"
     assert "REJECTED" in final["guardrail_status"]
 
 
@@ -77,7 +77,7 @@ def test_invalid_action_rejected():
         discount_pct=0,
     ))
     assert final["guardrail_status"] == "REJECTED_INVALID_PROPOSAL"
-    assert final["final_status"] == "ESCALATED"
+    assert final["final_status"] == "REJECTED"
     justifications = " ".join(a["justification"] for a in final["audit_entries"])
     assert "REJECTED" in justifications
 
@@ -89,7 +89,7 @@ def test_negative_discount_rejected():
         proposed_action="apply_discount",
         discount_pct=-5,
     ))
-    assert final["final_status"] == "ESCALATED"
+    assert final["final_status"] == "REJECTED"
     justifications = " ".join(a["justification"] for a in final["audit_entries"])
     assert "REJECTED" in justifications
 

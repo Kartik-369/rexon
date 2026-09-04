@@ -3,7 +3,7 @@ import math
 from typing import Any, Dict, List, Literal, Optional
 
 from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, ConfigDict
 from typing_extensions import TypedDict
 
 # ── Closed enum: enforced at runtime, not just type-hint ──
@@ -26,6 +26,8 @@ KNOWN_FAILURE_CODES = frozenset(
 class LLMRecoveryProposal(BaseModel):
     """Validates structured output from the LLM diagnostic node.
     Any real LLM response MUST be parsed through this before entering state."""
+
+    model_config = ConfigDict(strict=True)
 
     action: Literal[
         "send_reminder",
@@ -84,7 +86,7 @@ def deterministic_triage(state: RecoveryState):
 
     audit = {
         "actor": "rules_engine",
-        "event_type": "diagnosed",
+        "event_type": "diagnosed" if diagnosis != "Unrecognized Code" else "anomaly_detected",
         "payload_json": json.dumps({"failure_code": code, "diagnosis": diagnosis}),
         "justification": f"Triaged as '{diagnosis}' based on error code '{code}'.",
     }
@@ -247,10 +249,10 @@ def guardrail_check(state: RecoveryState):
         )
     # Rule 4: High-value escalation
     elif amount > 10000:
+        # Note: This threshold currently assumes INR. If multi-currency is 
+        # supported later, FX conversion must happen before this evaluation.
         status = "ESCALATED_HIGH_VALUE"
-        justification = (
-            f"ESCALATED: amount ₹{amount:,.0f} exceeds ₹10,000 ceiling → human review."
-        )
+        justification = f"ESCALATED: amount ₹{amount:,.0f} exceeds ₹10,000 ceiling → human review."
 
     audit = {
         "actor": "guardrail",
@@ -298,19 +300,17 @@ def escalate_node(state: RecoveryState):
     status = state.get("guardrail_status", "")
     if status in ("HALTED_MAX_ATTEMPTS", "REJECTED_INVALID_AMOUNT"):
         state["final_status"] = "FAILED"
+    elif status.startswith("REJECTED"):
+        state["final_status"] = "REJECTED"
     else:
         state["final_status"] = "ESCALATED"
 
-    state["audit_entries"].append(
-        {
-            "actor": "rules_engine",
-            "event_type": "escalated",
-            "payload_json": json.dumps(
-                {"final_status": state["final_status"], "guardrail_status": status}
-            ),
-            "justification": f"Escalated to human review. Guardrail: {status}.",
-        }
-    )
+    state["audit_entries"].append({
+        "actor": "rules_engine",
+        "event_type": "escalated" if state["final_status"] == "ESCALATED" else "rejected",
+        "payload_json": json.dumps({"final_status": state["final_status"], "guardrail_status": status}),
+        "justification": f"Routed to {state['final_status']}. Guardrail: {status}."
+    })
     return state
 
 def build_recovery_graph():
