@@ -15,5 +15,3 @@ frontend/dist/
 .vscode/
 .idea/
 
-# Agents / System
-.agents/
