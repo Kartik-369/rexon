@@ -214,6 +214,7 @@ def ai_diagnostic_node(state: RecoveryState):
     state["audit_entries"].append(audit)
     return state
 
+
 def route_after_diagnostic(state: RecoveryState):
     """If Pydantic already rejected the proposal, skip guardrail and escalate."""
     if state.get("guardrail_status") == "REJECTED_INVALID_PROPOSAL":
@@ -238,7 +239,7 @@ def guardrail_check(state: RecoveryState):
     # Rule 2: NaN amount (defense in depth — also checked in pre_check)
     elif not (amount == amount) or amount <= 0:
         status = "REJECTED_INVALID_AMOUNT"
-        justification = f"REJECTED: amount is invalid (NaN or non-positive)."
+        justification = "REJECTED: amount is invalid (NaN or non-positive)."
     # Rule 3: Discount range [0, 10]
     elif discount is not None and (discount > 10 or discount < 0):
         status = "REJECTED_OVER_DISCOUNT"
@@ -270,6 +271,7 @@ def guardrail_check(state: RecoveryState):
     state["audit_entries"].append(audit)
     return state
 
+
 def route_after_guardrail(state: RecoveryState):
     if state.get("guardrail_status", "PASSED") == "PASSED":
         return "execute_action"
@@ -293,6 +295,7 @@ def execute_action(state: RecoveryState):
     )
     return state
 
+
 def escalate_node(state: RecoveryState):
     """Node 4b: Escalate if failed guardrails."""
     status = state.get("guardrail_status", "")
@@ -312,6 +315,7 @@ def escalate_node(state: RecoveryState):
         }
     )
     return state
+
 
 def build_recovery_graph():
     builder = StateGraph(RecoveryState)
@@ -344,5 +348,6 @@ def build_recovery_graph():
     builder.add_edge("execute_action", END)
     builder.add_edge("escalate_node", END)
     return builder.compile()
+
 
 recovery_app = build_recovery_graph()
