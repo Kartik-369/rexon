@@ -83,7 +83,7 @@ function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-zinc-400 text-lg animate-pulse">Loading Recon Dashboard...</div>
+        <div className="text-zinc-400 text-lg animate-pulse">Loading rexon Dashboard...</div>
       </div>
     )
   }

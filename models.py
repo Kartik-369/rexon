@@ -59,7 +59,7 @@ def compute_row_hash(
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
-sqlite_file_name = "recon.db"
+sqlite_file_name = "rexon.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
 engine = create_engine(sqlite_url, echo=False)
