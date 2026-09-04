@@ -8,7 +8,7 @@ export default function Header() {
           <Shield className="w-8 h-8 text-indigo-500" />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-white">
-              Recon <span className="text-zinc-500 font-normal">|</span>{' '}
+              rexon <span className="text-zinc-500 font-normal">|</span>{' '}
               <span className="text-zinc-300 font-medium text-base">
                 Autonomous Bounded Recovery Engine
               </span>
