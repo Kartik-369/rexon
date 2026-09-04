@@ -248,11 +248,15 @@ def trigger_deliberate_failure(
     if not t:
         return {"error": "Transaction not found"}
 
-    final_state = process_transaction(
-        t, session, injected_action=data.action, injected_discount=data.discount_pct
-    )
-    session.commit()
-    return {"message": "Deliberate failure triggered", "state": final_state}
+    try:
+        final_state = process_transaction(
+            t, session, injected_action=data.action, injected_discount=data.discount_pct
+        )
+        session.commit()
+        return {"message": "Deliberate failure triggered", "state": final_state}
+    except Exception as e:
+        session.rollback()
+        return {"error": f"Execution failed or blocked: {e}"}
 
 
 class VerifyResponse(BaseModel):
