@@ -10,7 +10,7 @@ failure_codes = [
     ("GATEWAY_TIMEOUT", 0.15, "Payment gateway timed out during processing")
 ]
 
-def generate_synthetic_data(num_records=100):
+def generate_synthetic_data(num_records=900):
     create_db_and_tables()
     
     with Session(engine) as session:
